@@ -1,0 +1,1 @@
+E-commerce platform using ASP.NET Core middleware, filters, and dependency injection (DI) to manage cross-cutting issues such as logging, authentication, exception handling, and background job processing. The project emphasizes clean architecture and SOLID principles. The project is educational.
