@@ -1,6 +1,7 @@
 using ECommerce.Application.DTOs.Category;
 using ECommerce.Application.Interfaces;
 using ECommerce.Common.Constants;
+using ECommerce.Common.Extensions;
 using ECommerce.Domain.Entities;
 using ECommerce.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -10,11 +11,13 @@ namespace ECommerce.Application.Services;
 public class CategoryService : ICategoryService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ICacheService _cache;
     private readonly ILogger<CategoryService> _logger;
 
-    public CategoryService(IUnitOfWork unitOfWork, ILogger<CategoryService> logger)
+    public CategoryService(IUnitOfWork unitOfWork, ICacheService cache, ILogger<CategoryService> logger)
     {
         _unitOfWork = unitOfWork;
+        _cache = cache;
         _logger = logger;
     }
 
@@ -27,8 +30,18 @@ public class CategoryService : ICategoryService
 
     public async Task<CategoryDto?> GetCategoryByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var category = await _unitOfWork.Categories.GetByIdAsync(id, cancellationToken);
-        return category is null || category.IsDeleted ? null : MapToDto(category);
+        var cacheKey = $"{AppConstants.Cache.CategoryPrefix}{id}";
+        return await _cache.GetOrSetAsync(cacheKey, async () =>
+        {
+            var category = await _unitOfWork.Categories.GetByIdAsync(id, cancellationToken);
+            return category is null || category.IsDeleted ? null! : MapToDto(category);
+        }, TimeSpan.FromMinutes(AppConstants.Cache.DefaultExpirationMinutes), cancellationToken);
+    }
+
+    public async Task<IEnumerable<CategoryDto>> GetSubCategoriesAsync(Guid parentId, CancellationToken cancellationToken = default)
+    {
+        var subs = await _unitOfWork.Categories.GetSubCategoriesAsync(parentId, cancellationToken);
+        return subs.Where(c => !c.IsDeleted).Select(MapToDto);
     }
 
     public async Task<CategoryDto> CreateCategoryAsync(
@@ -37,6 +50,9 @@ public class CategoryService : ICategoryService
         Guid? parentId,
         CancellationToken cancellationToken = default)
     {
+        if (name.IsNullOrWhiteSpace())
+            throw new InvalidOperationException(string.Format(ErrorMessages.InvalidOperation, "category name cannot be empty"));
+
         if (parentId.HasValue)
         {
             var parentExists = await _unitOfWork.Categories.ExistsAsync(parentId.Value, cancellationToken);
@@ -67,6 +83,7 @@ public class CategoryService : ICategoryService
         category.UpdatedAt = DateTime.UtcNow;
         await _unitOfWork.Categories.UpdateAsync(category, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await _cache.RemoveAsync($"{AppConstants.Cache.CategoryPrefix}{id}", cancellationToken);
     }
 
     private static CategoryDto MapToDto(Category c) => new()

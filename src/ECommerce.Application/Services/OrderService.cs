@@ -2,6 +2,7 @@ using ECommerce.Application.DTOs;
 using ECommerce.Application.DTOs.Order;
 using ECommerce.Application.Interfaces;
 using ECommerce.Common.Constants;
+using ECommerce.Common.Extensions;
 using ECommerce.Common.Helpers;
 using ECommerce.Domain.Entities;
 using ECommerce.Domain.Enums;
@@ -14,12 +15,14 @@ public class OrderService : IOrderService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IEmailService _emailService;
+    private readonly ICacheService _cache;
     private readonly ILogger<OrderService> _logger;
 
-    public OrderService(IUnitOfWork unitOfWork, IEmailService emailService, ILogger<OrderService> logger)
+    public OrderService(IUnitOfWork unitOfWork, IEmailService emailService, ICacheService cache, ILogger<OrderService> logger)
     {
         _unitOfWork = unitOfWork;
         _emailService = emailService;
+        _cache = cache;
         _logger = logger;
     }
     private static OrderDto MapToDto(Order o) => new()
@@ -48,9 +51,8 @@ public class OrderService : IOrderService
         var normalizedPage = PaginationHelper.NormalizePage(page);
         var normalizedSize = PaginationHelper.NormalizePageSize(pageSize);
 
-        var items = active
-            .Skip(PaginationHelper.CalculateSkip(normalizedPage, normalizedSize))
-            .Take(normalizedSize)
+        var items = active.AsQueryable()
+            .Paginate(normalizedPage, normalizedSize)
             .Select(MapToDto)
             .ToList();
 
@@ -66,13 +68,23 @@ public class OrderService : IOrderService
 
     public async Task<OrderDto?> GetOrderByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var order = await _unitOfWork.Orders.GetWithItemsAsync(id, cancellationToken);
-        return order is null || order.IsDeleted ? null : MapToDto(order);
+        var cacheKey = $"{AppConstants.Cache.OrderPrefix}{id}";
+        return await _cache.GetOrSetAsync(cacheKey, async () =>
+        {
+            var order = await _unitOfWork.Orders.GetWithItemsAsync(id, cancellationToken);
+            return order is null || order.IsDeleted ? null! : MapToDto(order);
+        }, TimeSpan.FromMinutes(AppConstants.Cache.DefaultExpirationMinutes), cancellationToken);
     }
 
     public async Task<IEnumerable<OrderDto>> GetOrdersByCustomerAsync(Guid customerId, CancellationToken cancellationToken = default)
     {
         var orders = await _unitOfWork.Orders.GetByCustomerAsync(customerId, cancellationToken);
+        return orders.Where(o => !o.IsDeleted).Select(MapToDto);
+    }
+
+    public async Task<IEnumerable<OrderDto>> GetOrdersByStatusAsync(OrderStatus status, CancellationToken cancellationToken = default)
+    {
+        var orders = await _unitOfWork.Orders.GetByStatusAsync(status, cancellationToken);
         return orders.Where(o => !o.IsDeleted).Select(MapToDto);
     }
 
@@ -135,10 +147,23 @@ public class OrderService : IOrderService
         var order = await _unitOfWork.Orders.GetByIdAsync(id, cancellationToken)
             ?? throw new KeyNotFoundException(string.Format(ErrorMessages.NotFound, "Order", id));
 
+        if (order.Status is OrderStatus.Cancelled or OrderStatus.Delivered)
+            throw new InvalidOperationException(string.Format(ErrorMessages.InvalidOperation,
+                $"cannot update status of an order that is already {order.Status}"));
+
+        if (status == OrderStatus.Delivered)
+        {
+            var payment = await _unitOfWork.Payments.GetByOrderAsync(id, cancellationToken);
+            if (payment is null)
+                throw new InvalidOperationException(string.Format(ErrorMessages.PaymentFailed,
+                    "order has no associated payment record"));
+        }
+
         order.Status = status;
         order.UpdatedAt = DateTime.UtcNow;
         await _unitOfWork.Orders.UpdateAsync(order, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await _cache.RemoveAsync($"{AppConstants.Cache.OrderPrefix}{id}", cancellationToken);
 
         return MapToDto(order);
     }
