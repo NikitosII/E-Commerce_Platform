@@ -1,3 +1,4 @@
+using ECommerce.Common.Constants;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
 using System.Text.Json;
@@ -34,7 +35,7 @@ public class ErrorHandlingMiddleware
         {
             KeyNotFoundException => (HttpStatusCode.NotFound, ex.Message),
             InvalidOperationException => (HttpStatusCode.BadRequest, ex.Message),
-            UnauthorizedAccessException => (HttpStatusCode.Unauthorized, "Unauthorized."),
+            UnauthorizedAccessException => (HttpStatusCode.Unauthorized, ErrorMessages.Unauthorized),
             DbUpdateException dbEx => (HttpStatusCode.BadRequest, ExtractDbMessage(dbEx)),
             _ => (HttpStatusCode.InternalServerError, "An unexpected error occurred.")
         };
