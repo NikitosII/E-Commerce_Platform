@@ -1,4 +1,5 @@
 using ECommerce.Application;
+using ECommerce.Common.Constants;
 using ECommerce.Infrastructure;
 using ECommerce.Web.Filters;
 using ECommerce.Web.Middleware;
@@ -14,6 +15,12 @@ builder.Services.AddControllers(options =>
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(AppConstants.Roles.Admin, policy => policy.RequireRole(AppConstants.Roles.Admin));
+    options.AddPolicy(AppConstants.Roles.Customer, policy => policy.RequireRole(AppConstants.Roles.Customer));
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
