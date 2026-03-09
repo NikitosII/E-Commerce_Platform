@@ -25,6 +25,13 @@ public class CategoriesController : ControllerBase
         return category is null ? NotFound() : Ok(category);
     }
 
+    [HttpGet("{id:guid}/subcategories")]
+    public async Task<IActionResult> GetSubCategories(Guid id, CancellationToken cancellationToken)
+    {
+        var subs = await _categoryService.GetSubCategoriesAsync(id, cancellationToken);
+        return Ok(subs);
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateCategoryRequest request, CancellationToken cancellationToken)
     {

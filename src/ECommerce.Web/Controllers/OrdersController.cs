@@ -35,6 +35,13 @@ public class OrdersController : ControllerBase
         return Ok(orders);
     }
 
+    [HttpGet("by-status/{status}")]
+    public async Task<IActionResult> GetByStatus(OrderStatus status, CancellationToken cancellationToken)
+    {
+        var orders = await _orderService.GetOrdersByStatusAsync(status, cancellationToken);
+        return Ok(orders);
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateOrderDto dto, CancellationToken cancellationToken)
     {

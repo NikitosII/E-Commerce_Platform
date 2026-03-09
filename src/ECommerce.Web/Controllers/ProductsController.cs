@@ -34,6 +34,13 @@ public class ProductsController : ControllerBase
         return Ok(results);
     }
 
+    [HttpGet("in-stock")]
+    public async Task<IActionResult> GetInStock(CancellationToken cancellationToken)
+    {
+        var products = await _productService.GetInStockAsync(cancellationToken);
+        return Ok(products);
+    }
+
     [HttpGet("category/{categoryId:guid}")]
     public async Task<IActionResult> GetByCategory(Guid categoryId, CancellationToken cancellationToken)
     {
