@@ -131,7 +131,14 @@ public class OrderService : IOrderService
 
             _logger.LogInformation("Order {OrderId} created for customer {CustomerId}", order.Id, dto.CustomerId);
 
-            await _emailService.SendOrderConfirmationAsync(customer.Email, order.Id, cancellationToken);
+            try
+            {
+                await _emailService.SendOrderConfirmationAsync(customer.Email, order.Id, cancellationToken);
+            }
+            catch (Exception emailEx)
+            {
+                _logger.LogWarning(emailEx, "Failed to send confirmation email for order {OrderId}", order.Id);
+            }
 
             return MapToDto(order);
         }

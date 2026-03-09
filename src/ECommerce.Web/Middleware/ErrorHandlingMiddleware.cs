@@ -9,11 +9,13 @@ public class ErrorHandlingMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ErrorHandlingMiddleware> _logger;
+    private readonly IWebHostEnvironment _env;
 
-    public ErrorHandlingMiddleware(RequestDelegate next, ILogger<ErrorHandlingMiddleware> logger)
+    public ErrorHandlingMiddleware(RequestDelegate next, ILogger<ErrorHandlingMiddleware> logger, IWebHostEnvironment env)
     {
         _next = next;
         _logger = logger;
+        _env = env;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -29,7 +31,7 @@ public class ErrorHandlingMiddleware
         }
     }
 
-    private static Task WriteErrorResponseAsync(HttpContext context, Exception ex)
+    private Task WriteErrorResponseAsync(HttpContext context, Exception ex)
     {
         var (statusCode, message) = ex switch
         {
@@ -43,14 +45,11 @@ public class ErrorHandlingMiddleware
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = (int)statusCode;
 
-        var payload = JsonSerializer.Serialize(new
-        {
-            status = (int)statusCode,
-            error = message,
-            timestamp = DateTime.UtcNow
-        });
+        object payload = _env.IsDevelopment()
+            ? new { status = (int)statusCode, error = message, detail = ex.ToString(), timestamp = DateTime.UtcNow }
+            : new { status = (int)statusCode, error = message, timestamp = DateTime.UtcNow };
 
-        return context.Response.WriteAsync(payload);
+        return context.Response.WriteAsync(JsonSerializer.Serialize(payload));
     }
 
     private static string ExtractDbMessage(DbUpdateException ex)
