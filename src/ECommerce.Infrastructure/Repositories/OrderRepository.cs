@@ -10,6 +10,11 @@ public class OrderRepository : Repository<Order>, IOrderRepository
 {
     public OrderRepository(ECommerceDbContext context) : base(context) { }
 
+    public override async Task<IEnumerable<Order>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        await _dbSet.Include(o => o.Items).ThenInclude(i => i.Product)
+                    .Include(o => o.Customer)
+                    .ToListAsync(cancellationToken);
+
     public async Task<IEnumerable<Order>> GetByCustomerAsync(Guid customerId, CancellationToken cancellationToken = default) =>
         await _dbSet.Include(o => o.Items).ThenInclude(i => i.Product)
                     .Include(o => o.Customer)
