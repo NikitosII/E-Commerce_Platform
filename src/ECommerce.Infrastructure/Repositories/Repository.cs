@@ -1,4 +1,3 @@
-using System.Linq.Expressions;
 using ECommerce.Domain.Entities;
 using ECommerce.Domain.Interfaces;
 using ECommerce.Infrastructure.Data;
@@ -23,9 +22,6 @@ public class Repository<T> : IRepository<T> where T : BaseEntity
     public virtual async Task<IEnumerable<T>> GetAllAsync(CancellationToken cancellationToken = default) =>
         await _dbSet.ToListAsync(cancellationToken);
 
-    public virtual async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default) =>
-        await _dbSet.Where(predicate).ToListAsync(cancellationToken);
-
     public virtual async Task<T> AddAsync(T entity, CancellationToken cancellationToken = default)
     {
         await _dbSet.AddAsync(entity, cancellationToken);
@@ -36,13 +32,6 @@ public class Repository<T> : IRepository<T> where T : BaseEntity
     {
         _dbSet.Update(entity);
         return Task.CompletedTask;
-    }
-
-    public virtual async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        var entity = await GetByIdAsync(id, cancellationToken);
-        if (entity is not null)
-            _dbSet.Remove(entity);
     }
 
     public virtual async Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken = default) =>

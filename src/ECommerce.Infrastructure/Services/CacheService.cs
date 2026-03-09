@@ -48,12 +48,6 @@ public class CacheService : ICacheService
         _logger.LogDebug("Cache removed: {Key}", key);
     }
 
-    public async Task<bool> ExistsAsync(string key, CancellationToken cancellationToken = default)
-    {
-        var bytes = await _cache.GetAsync(key, cancellationToken);
-        return bytes is not null;
-    }
-
     public async Task<T> GetOrSetAsync<T>(string key, Func<Task<T>> factory, TimeSpan? expiry = null, CancellationToken cancellationToken = default)
     {
         var cached = await GetAsync<T>(key, cancellationToken);
