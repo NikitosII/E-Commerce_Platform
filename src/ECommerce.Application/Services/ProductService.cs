@@ -2,6 +2,7 @@ using ECommerce.Application.DTOs;
 using ECommerce.Application.DTOs.Product;
 using ECommerce.Application.Interfaces;
 using ECommerce.Common.Constants;
+using ECommerce.Common.Extensions;
 using ECommerce.Common.Helpers;
 using ECommerce.Domain.Entities;
 using ECommerce.Domain.Interfaces;
@@ -40,9 +41,8 @@ public class ProductService : IProductService
 
         var normalizedPage = PaginationHelper.NormalizePage(page);
         var normalizedSize = PaginationHelper.NormalizePageSize(pageSize);
-        var items = active
-            .Skip(PaginationHelper.CalculateSkip(normalizedPage, normalizedSize))
-            .Take(normalizedSize)
+        var items = active.AsQueryable()
+            .Paginate(normalizedPage, normalizedSize)
             .Select(MapToDto)
             .ToList();
 
@@ -74,8 +74,18 @@ public class ProductService : IProductService
 
     public async Task<IEnumerable<ProductDto>> SearchProductsAsync(string searchTerm, CancellationToken cancellationToken = default)
     {
-        var products = await _unitOfWork.Products.SearchAsync(searchTerm, cancellationToken);
-        return products.Where(p => !p.IsDeleted).Select(MapToDto);
+        var cacheKey = $"search:{HashHelper.ComputeSha256(searchTerm)}";
+        return await _cache.GetOrSetAsync(cacheKey, async () =>
+        {
+            var products = await _unitOfWork.Products.SearchAsync(searchTerm, cancellationToken);
+            return products.Where(p => !p.IsDeleted).Select(MapToDto).ToList();
+        }, TimeSpan.FromMinutes(AppConstants.Cache.DefaultExpirationMinutes), cancellationToken) ?? [];
+    }
+
+    public async Task<IEnumerable<ProductDto>> GetInStockAsync(CancellationToken cancellationToken = default)
+    {
+        var products = await _unitOfWork.Products.GetInStockAsync(cancellationToken);
+        return products.Select(MapToDto);
     }
 
     public async Task<ProductDto> CreateProductAsync(CreateProductDto dto, CancellationToken cancellationToken = default)
