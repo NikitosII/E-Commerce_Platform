@@ -93,7 +93,7 @@ Applied to every controller action via `AddControllers(options => ...)`:
 `ICacheService` is backed by Redis (`IDistributedCache`) with JSON serialisation. All cache entries use a **30-minute TTL** by default.
 
 | Service | Cached operation | Cache key pattern | 
-|---|---|---|---|
+|---|---|---|
 | `ProductService` | `GetProductByIdAsync` | `product:<id>` | 
 | `ProductService` | `SearchProductsAsync` | `search:<sha256(term)>` | 
 | `CategoryService` | `GetCategoryByIdAsync` | `category:<id>` | 

@@ -454,12 +454,12 @@ In **Development** mode an additional `detail` field contains the full exception
 
 ## Caching
 
-| Cache key | TTL | Populated by | Invalidated by |
-|---|---|---|---|
-| `product:<id>` | 30 min | `GET /api/products/{id}` | `PUT /api/products/{id}`, `DELETE /api/products/{id}` |
-| `search:<sha256(term)>` | 30 min | `GET /api/products/search` | TTL expiry only |
-| `category:<id>` | 30 min | `GET /api/categories/{id}` | `DELETE /api/categories/{id}` |
-| `order:<id>` | 30 min | `GET /api/orders/{id}` | `PATCH /api/orders/{id}/status`, `POST /api/orders/{id}/cancel` |
+| Cache key | TTL | Populated by | 
+|---|---|---|
+| `product:<id>` | 30 min | `GET /api/products/{id}` |
+| `search:<sha256(term)>` | 30 min | `GET /api/products/search` |
+| `category:<id>` | 30 min | `GET /api/categories/{id}` |
+| `order:<id>` | 30 min | `GET /api/orders/{id}` |
 
 To flush all cache entries (local Redis only):
 
